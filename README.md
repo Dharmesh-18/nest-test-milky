@@ -5,10 +5,11 @@ This is a simple NestJS application designed to manage daily milk collections fo
 ## Features
 
 *   **User Authentication:** Signup and Login with JWT.
-*   **Role-Based Access Control (RBAC):**
-    *   **Owner:** Full access to all APIs and routes.
-    *   **Worker:** Can enroll new customers, mark milk collected, and mark payments.
-    *   **Customer:** Can view their own customer data.
+## Role-Based Access Control (RBAC) Summary
+
+*   **Owner:** Can perform all actions on users, including creating, reading, updating, and deleting users of any role. Can also mark milk collected/paid for users with the `customer` role.
+*   **Worker:** Can create, read, and update users of any role (including marking milk collected/paid for `customer` users). Cannot delete users.
+*   **Customer:** Can only read their own user data (if their user ID matches the requested user ID). Cannot create, update, or delete other users.
 *   **Customer Management:**
     *   Create, view, update, and delete customer records.
     *   Mark daily milk collection.
@@ -20,7 +21,12 @@ This is a simple NestJS application designed to manage daily milk collections fo
     ```bash
     npm install
     ```
-2.  **Run the Application in Development Mode:**
+2.  **Configure MongoDB:**
+    Create a `.env` file in the project root with your MongoDB connection URI. For local development, you can use:
+    ```
+    MONGODB_URI=mongodb://localhost:27017/nest-test-milky
+    ```
+3.  **Run the Application in Development Mode:**
     ```bash
     npm run start:dev
     ```
@@ -75,80 +81,96 @@ For all endpoints below, you must include an `Authorization` header:
 *   **Header Key:** `Authorization`
 *   **Header Value:** `Bearer YOUR_JWT_TOKEN_HERE`
 
-### Customer Management
+### User Management
 
-#### 1. Create a Customer
+All user-related operations are now handled under the `/user` endpoint.
+
+#### 1. Get Users by Role
+
+*   **Method:** `GET`
+*   **URL:** `/user/by-role/:role` (e.g., `/user/by-role/customer`)
+*   **Roles Allowed:** `owner`, `worker`
+*   **Headers:** `Authorization: Bearer <token>`
+*   **Path Parameters:**
+    *   `role`: The role of users to retrieve (`owner`, `worker`, `customer`).
+*   **Expected Response:** An array of user JSON objects matching the specified role.
+
+#### 2. Create a User with a Specific Role
 
 *   **Method:** `POST`
-*   **URL:** `/customer`
+*   **URL:** `/user/create-with-role`
 *   **Roles Allowed:** `owner`, `worker`
 *   **Headers:** `Content-Type: application/json`, `Authorization: Bearer <token>`
 *   **Body (JSON):**
     ```json
     {
-        "name": "Customer Name",
+        "username": "new_user",
+        "password": "secure_password",
+        "role": "owner" | "worker" | "customer",
+        "name": "User Name",
         "monthlyAmount": 0.00
     }
     ```
-*   **Expected Response:** JSON object of the created customer.
+    *Note: `name`, `monthlyAmount`, `collectedToday`, and `paid` are optional and primarily relevant for `customer` role.*
+*   **Expected Response:** JSON object of the created user.
 
-#### 2. Get All Customers
-
-*   **Method:** `GET`
-*   **URL:** `/customer`
-*   **Roles Allowed:** `owner`, `worker`
-*   **Headers:** `Authorization: Bearer <token>`
-*   **Expected Response:** An array of customer JSON objects.
-
-#### 3. Get a Single Customer by ID
+#### 3. Get a Single User by ID and Role
 
 *   **Method:** `GET`
-*   **URL:** `/customer/:id` (e.g., `/customer/1`)
+*   **URL:** `/user/:id/role/:role` (e.g., `/user/60d5ecf0f1c2a3b4e5d6c7b8/role/customer`)
 *   **Roles Allowed:** `owner`, `worker`, `customer` (customer can only access their own ID)
 *   **Headers:** `Authorization: Bearer <token>`
-*   **Expected Response:** JSON object of the specified customer.
+*   **Path Parameters:**
+    *   `id`: The MongoDB ObjectId of the user.
+    *   `role`: The role of the user.
+*   **Expected Response:** JSON object of the specified user.
 
-#### 4. Update a Customer
+#### 4. Update a User by ID and Role
 
 *   **Method:** `PATCH`
-*   **URL:** `/customer/:id` (e.g., `/customer/1`)
+*   **URL:** `/user/:id/role/:role` (e.g., `/user/60d5ecf0f1c2a3b4e5d6c7b8/role/customer`)
 *   **Roles Allowed:** `owner`, `worker`
 *   **Headers:** `Content-Type: application/json`, `Authorization: Bearer <token>`
+*   **Path Parameters:**
+    *   `id`: The MongoDB ObjectId of the user.
+    *   `role`: The role of the user.
 *   **Body (JSON):**
     ```json
     {
+        "username": "updated_username",
         "name": "Updated Name",
         "monthlyAmount": 35.00
     }
     ```
-*   **Expected Response:** JSON object of the updated customer.
+*   **Expected Response:** JSON object of the updated user.
 
-#### 5. Mark Milk Collected for Today
-
-*   **Method:** `PATCH`
-*   **URL:** `/customer/:id/collect` (e.g., `/customer/1/collect`)
-*   **Roles Allowed:** `owner`, `worker`
-*   **Headers:** `Authorization: Bearer <token>`
-*   **Expected Response:** JSON object of the customer with `collectedToday: true`.
-
-#### 6. Mark Monthly Amount Paid
+#### 5. Mark Milk Collected for a Customer User
 
 *   **Method:** `PATCH`
-*   **URL:** `/customer/:id/pay` (e.g., `/customer/1/pay`)
+*   **URL:** `/user/:id/collect` (e.g., `/user/60d5ecf0f1c2a3b4e5d6c7b8/collect`)
 *   **Roles Allowed:** `owner`, `worker`
 *   **Headers:** `Authorization: Bearer <token>`
-*   **Expected Response:** JSON object of the customer with `paid: true`.
+*   **Path Parameters:**
+    *   `id`: The MongoDB ObjectId of the customer user.
+*   **Expected Response:** JSON object of the customer user with `collectedToday: true`.
 
-#### 7. Delete a Customer
+#### 6. Mark Monthly Amount Paid for a Customer User
+
+*   **Method:** `PATCH`
+*   **URL:** `/user/:id/pay` (e.g., `/user/60d5ecf0f1c2a3b4e5d6c7b8/pay`)
+*   **Roles Allowed:** `owner`, `worker`
+*   **Headers:** `Authorization: Bearer <token>`
+*   **Path Parameters:**
+    *   `id`: The MongoDB ObjectId of the customer user.
+*   **Expected Response:** JSON object of the customer user with `paid: true`.
+
+#### 7. Delete a User by ID and Role
 
 *   **Method:** `DELETE`
-*   **URL:** `/customer/:id` (e.g., `/customer/1`)
+*   **URL:** `/user/:id/role/:role` (e.g., `/user/60d5ecf0f1c2a3b4e5d6c7b8/role/customer`)
 *   **Roles Allowed:** `owner`
 *   **Headers:** `Authorization: Bearer <token>`
+*   **Path Parameters:**
+    *   `id`: The MongoDB ObjectId of the user.
+    *   `role`: The role of the user.
 *   **Expected Response:** Empty success response (e.g., 200 OK).
-
-## Role-Based Access Control (RBAC) Summary
-
-*   **Owner:** Can perform all actions (create, read, update, delete customers; mark collected/paid).
-*   **Worker:** Can create, read, update (including mark collected/paid) customers. Cannot delete customers.
-*   **Customer:** Can only read their own customer data (if their user ID matches the customer ID). Cannot create, update, or delete customers.

@@ -20,7 +20,8 @@ export class AuthService {
   }
 
   async login(user: any) {
-    const payload = { username: user.username, sub: user.id, role: user.role };
+    const payload = { username: user.username, sub: user._id, role: user.role };
+    console.log('Login payload:', payload);
     return {
       access_token: this.jwtService.sign(payload),
     };
@@ -29,7 +30,7 @@ export class AuthService {
   async signup(user: any) {
     const salt = await bcrypt.genSalt();
     const password_hash = await bcrypt.hash(user.password, salt);
-    const newUser = await this.userService.create({ ...user, password_hash });
+    const newUser = await this.userService.create({ ...user, password_hash, role: user.role?.toLowerCase() });
     return newUser;
   }
 }
